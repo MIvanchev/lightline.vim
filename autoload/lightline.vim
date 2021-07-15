@@ -21,9 +21,56 @@ function! lightline#update() abort
     let w = winnr()
     let s = winnr('$') == 1 && w > 0 ? [lightline#statusline(0)] : [lightline#statusline(0), lightline#statusline(1)]
     for n in range(1, winnr('$'))
-      call setwinvar(n, '&statusline', s[n!=w])
+      if exists('t:NERDTreeBufName') && bufwinnr(t:NERDTreeBufName) == n
+        let content = s[n!=w]
+
+        if bufwinnr(t:NERDTreeBufName) == winnr()
+          " Replace everything after the mode with the special NERDTree line
+
+          let content = substitute(content,
+                              \ '%( %{lightline#mode()} %).*',
+                              \ '%( %{lightline#mode()} %)%#lightlineleft_active_1#%{lightline#nerdtree_active()}', '')
+        else
+          let content = '%#lightlineleft_inactive_0#%{lightline#nerdtree_inactive()}'
+        endif
+
+        call setwinvar(n, '&statusline', content)
+      else
+        call setwinvar(n, '&statusline', s[n!=w])
+      endif
     endfor
   endif
+endfunction
+
+function! lightline#nerdtree_active() abort
+  " Get the current line in the NERDTree buffer
+  let line = getline('.')
+
+  " Remove prefix and devicon, leave only the path
+  let line = substitute(line, '^ *[+~]\? \+\[ . \]', '', '')
+
+  " Remove suffixes like link targets and bookmarks
+  let line = substitute(line, '.*$', '', '')
+
+  " Calculate how much space we have to show the current line and truncate from
+  " the right if necessary
+  let width = winwidth(0) - 1
+  let width -= 2 + strlen(lightline#mode())
+
+  if strlen(line) > width
+    let line = strpart(line, 0, width - 1) . '>'
+  endif
+
+  return ' ' . line
+endfunction
+
+function! lightline#nerdtree_inactive() abort
+  let line = '🎄 NERDTree 🎄'
+  let linelen = strchars(line)
+  let width = winwidth(bufwinnr(t:NERDTreeBufName))
+  let padding = (width - linelen) / 2
+  let line = repeat(' ', padding) . line
+  return line
 endfunction
 
 if exists('*win_gettype')
